@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!--
+    Minibex ros2_control 定義。
+    - HWプラグイン: bxi_hardware/BxiSystemInterface
+    - 各関節は フルMIT の command interface（position/velocity/kp/kd/effort）と
+      state interface（position/velocity/effort/temperature）を公開する。
+    - per-joint の CANマッピングは config_file(yaml) から注入する。
+  -->
+
+  <xacro:macro name="minibex_joint_control" params="name">
+    <joint name="${name}">
+      <command_interface name="position"/>
+      <command_interface name="velocity"/>
+      <command_interface name="kp"/>
+      <command_interface name="kd"/>
+      <command_interface name="effort"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+      <state_interface name="temperature"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="minibex_ros2_control" params="config_file spec_dir">
+    <ros2_control name="minibex_system" type="system">
+      <hardware>
+        <plugin>bxi_hardware/BxiSystemInterface</plugin>
+        <param name="config_file">${config_file}</param>
+        <param name="spec_dir">${spec_dir}</param>
+      </hardware>
+
+      <!-- 関節順序: BL, BR, FL, FR × collar, hip, knee -->
+      <xacro:minibex_joint_control name="BL_collar_joint"/>
+      <xacro:minibex_joint_control name="BL_hip_joint"/>
+      <xacro:minibex_joint_control name="BL_knee_joint"/>
+      <xacro:minibex_joint_control name="BR_collar_joint"/>
+      <xacro:minibex_joint_control name="BR_hip_joint"/>
+      <xacro:minibex_joint_control name="BR_knee_joint"/>
+      <xacro:minibex_joint_control name="FL_collar_joint"/>
+      <xacro:minibex_joint_control name="FL_hip_joint"/>
+      <xacro:minibex_joint_control name="FL_knee_joint"/>
+      <xacro:minibex_joint_control name="FR_collar_joint"/>
+      <xacro:minibex_joint_control name="FR_hip_joint"/>
+      <xacro:minibex_joint_control name="FR_knee_joint"/>
+    </ros2_control>
+  </xacro:macro>
+
+</robot>
