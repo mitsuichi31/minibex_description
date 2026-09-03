@@ -13,7 +13,10 @@
 
   <xacro:arg name="config_file" default=""/>
   <xacro:arg name="spec_dir" default=""/>
-  <xacro:arg name="use_ros2_control" default="true"/>
+  <xacro:arg name="hardware_mode" default="none"/>
+  <xacro:arg name="mujoco_model" default=""/>
+  <xacro:arg name="headless" default="true"/>
+  <xacro:arg name="sim_speed_factor" default="1.0"/>
 
   <material name="body_color">
     <color rgba="0.75 0.75 0.75 1.0"/>
@@ -201,9 +204,26 @@
     scapula_ixy="-1"  calf_iyz="0.000304"/>
 
   <!-- ============ ros2_control ============ -->
-  <xacro:if value="$(arg use_ros2_control)">
+  <xacro:if value="${'$(arg hardware_mode)' != 'none'}">
     <xacro:include filename="$(find minibex_description)/urdf/minibex.ros2_control.xacro"/>
-    <xacro:minibex_ros2_control config_file="$(arg config_file)" spec_dir="$(arg spec_dir)"/>
+    <xacro:property name="standalone_mode" value="$(arg hardware_mode)"/>
+    <xacro:unless value="${standalone_mode in ['mock', 'bxi', 'mujoco']}">
+      ${xacro.fatal('hardware_mode must be none, mock, bxi, or mujoco')}
+    </xacro:unless>
+    <xacro:if value="${standalone_mode in ['mock', 'bxi']}">
+      <xacro:minibex_standalone_ros2_control
+        hardware_mode="${standalone_mode}"
+        config_file="$(arg config_file)"
+        spec_dir="$(arg spec_dir)"/>
+    </xacro:if>
+    <xacro:if value="${standalone_mode == 'mujoco'}">
+      <xacro:property name="mujoco_model_value"
+        value="${'$(arg mujoco_model)' if '$(arg mujoco_model)' != '' else xacro.fatal('mujoco_model is required when hardware_mode is mujoco')}"/>
+      <xacro:minibex_mujoco_ros2_control
+        mujoco_model="${mujoco_model_value}"
+        headless="$(arg headless)"
+        sim_speed_factor="$(arg sim_speed_factor)"/>
+    </xacro:if>
   </xacro:if>
 
 </robot>
