@@ -22,6 +22,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             python3-colcon-common-extensions ros-jazzy-xacro ros-jazzy-ament-cmake-pytest
       - name: Build and test
+        shell: bash
         run: |
           set -eo pipefail
           source /opt/ros/jazzy/setup.bash
