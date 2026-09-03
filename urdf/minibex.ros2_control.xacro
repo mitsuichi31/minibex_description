@@ -2,10 +2,16 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
   <!--
     Minibex ros2_control 定義。
-    - HWプラグイン: bxi_hardware/BxiSystemInterface
-    - 各関節は フルMIT の command interface（position/velocity/kp/kd/effort）と
+    - mock/bxi: bxi_hardware/BxiSystemInterface（またはmock_components/GenericSystem）。
+      各関節はフルMITのcommand interface（position/velocity/kp/kd/effort）と
       state interface（position/velocity/effort/temperature）を公開する。
-    - per-joint の CANマッピングは config_file(yaml) から注入する。
+      per-jointのCANマッピングはconfig_file(yaml)から注入する（mockでも同じyamlを
+      読み込むが、GenericSystemはCAN通信を行わずcommandをそのままstateへ反映する）。
+    - mujoco: mujoco_ros2_control/MujocoSystemInterface（Stage 5）。MJCFのposition
+      actuatorはkp/kdをMJCF側で固定するため、command interfaceはpositionのみ
+      （双腕Stage 3 ADRと同じ方針）。base_linkを駆動するfree joint（base_joint）の
+      姿勢/速度はodom_free_joint_name経由で/odomへ、IMUはMJCF sensorから
+      ros2_control sensorへ直接マッピングする。
   -->
 
   <xacro:macro name="minibex_joint_control" params="name">
@@ -22,12 +28,27 @@
     </joint>
   </xacro:macro>
 
-  <xacro:macro name="minibex_ros2_control" params="config_file spec_dir">
+  <xacro:macro name="minibex_mujoco_joint_control" params="name">
+    <joint name="${name}">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="minibex_standalone_ros2_control"
+               params="hardware_mode config_file spec_dir">
     <ros2_control name="minibex_system" type="system">
       <hardware>
-        <plugin>bxi_hardware/BxiSystemInterface</plugin>
-        <param name="config_file">${config_file}</param>
-        <param name="spec_dir">${spec_dir}</param>
+        <xacro:if value="${hardware_mode == 'mock'}">
+          <plugin>mock_components/GenericSystem</plugin>
+        </xacro:if>
+        <xacro:if value="${hardware_mode == 'bxi'}">
+          <plugin>bxi_hardware/BxiSystemInterface</plugin>
+          <param name="config_file">${config_file}</param>
+          <param name="spec_dir">${spec_dir}</param>
+        </xacro:if>
       </hardware>
 
       <!-- 関節順序: BL, BR, FL, FR × collar, hip, knee -->
@@ -43,6 +64,50 @@
       <xacro:minibex_joint_control name="FR_collar_joint"/>
       <xacro:minibex_joint_control name="FR_hip_joint"/>
       <xacro:minibex_joint_control name="FR_knee_joint"/>
+    </ros2_control>
+  </xacro:macro>
+
+  <xacro:macro name="minibex_mujoco_ros2_control" params="mujoco_model headless sim_speed_factor">
+    <ros2_control name="minibex_system" type="system">
+      <hardware>
+        <plugin>mujoco_ros2_control/MujocoSystemInterface</plugin>
+        <param name="mujoco_model">${mujoco_model}</param>
+        <!-- xacro:property経由だとtrue/falseがPython boolへ変換されるため、この場で直接評価する -->
+        <param name="headless">${'true' if str(headless).lower() == 'true' else 'false'}</param>
+        <param name="sim_speed_factor">${sim_speed_factor}</param>
+        <!-- base_linkを駆動するMJCFのfree joint(base_joint)の姿勢/速度をnav_msgs/Odometryとして公開する -->
+        <param name="odom_free_joint_name">base_joint</param>
+        <param name="odom_topic">/odom</param>
+      </hardware>
+
+      <xacro:minibex_mujoco_joint_control name="BL_collar_joint"/>
+      <xacro:minibex_mujoco_joint_control name="BL_hip_joint"/>
+      <xacro:minibex_mujoco_joint_control name="BL_knee_joint"/>
+      <xacro:minibex_mujoco_joint_control name="BR_collar_joint"/>
+      <xacro:minibex_mujoco_joint_control name="BR_hip_joint"/>
+      <xacro:minibex_mujoco_joint_control name="BR_knee_joint"/>
+      <xacro:minibex_mujoco_joint_control name="FL_collar_joint"/>
+      <xacro:minibex_mujoco_joint_control name="FL_hip_joint"/>
+      <xacro:minibex_mujoco_joint_control name="FL_knee_joint"/>
+      <xacro:minibex_mujoco_joint_control name="FR_collar_joint"/>
+      <xacro:minibex_mujoco_joint_control name="FR_hip_joint"/>
+      <xacro:minibex_mujoco_joint_control name="FR_knee_joint"/>
+
+      <!-- MJCFのimu_quat/imu_gyro/imu_accel(scene.xml)を単一IMU sensorへマッピングする -->
+      <sensor name="imu">
+        <param name="mujoco_type">imu</param>
+        <param name="mujoco_sensor_name">imu</param>
+        <state_interface name="orientation.x"/>
+        <state_interface name="orientation.y"/>
+        <state_interface name="orientation.z"/>
+        <state_interface name="orientation.w"/>
+        <state_interface name="angular_velocity.x"/>
+        <state_interface name="angular_velocity.y"/>
+        <state_interface name="angular_velocity.z"/>
+        <state_interface name="linear_acceleration.x"/>
+        <state_interface name="linear_acceleration.y"/>
+        <state_interface name="linear_acceleration.z"/>
+      </sensor>
     </ros2_control>
   </xacro:macro>
 
